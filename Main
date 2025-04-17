@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 
 export default function HendersonHasselbalchCalculator() {
+  // Buffer options with their corresponding pKa values
   const bufferOptions = [
     { name: "Phosphate pKa1", pKa: 2.14 },
     { name: "Phosphate pKa2", pKa: 7.2 },
@@ -36,6 +37,8 @@ export default function HendersonHasselbalchCalculator() {
 
   const [selectedBuffer, setSelectedBuffer] = useState(bufferOptions[0]);
   const [pKa, setPKa] = useState(bufferOptions[0].pKa);
+  
+  // New state variables
   const [desiredPH, setDesiredPH] = useState(7.0);
   const [totalBufferConcentration, setTotalBufferConcentration] = useState(1.0);
   const [bufferUnit, setBufferUnit] = useState("molar");
@@ -43,32 +46,47 @@ export default function HendersonHasselbalchCalculator() {
   const [acidConcentration, setAcidConcentration] = useState(null);
   const [baseConcentration, setBaseConcentration] = useState(null);
 
+  // Update pKa when buffer selection changes (but allows for manual edits after)
   useEffect(() => {
     setPKa(selectedBuffer.pKa);
   }, [selectedBuffer]);
 
   const handleBufferChange = (e) => {
     const selected = bufferOptions.find(buffer => buffer.name === e.target.value);
-    if (selected) {
-      setSelectedBuffer(selected);
-    }
+    setSelectedBuffer(selected);
   };
 
   const calculateConcentrations = () => {
-    if (desiredPH < 0 || desiredPH > 14 || totalBufferConcentration <= 0 || isNaN(pKa)) {
-      return { error: "Invalid input. pH must be between 0–14 and concentration must be positive." };
+    // Check if inputs are valid
+    if (desiredPH < 0 || desiredPH > 14 || totalBufferConcentration <= 0) {
+      return {
+        error: "Invalid input. pH must be between 0-14 and concentration must be positive."
+      };
     }
 
+    // Henderson-Hasselbalch: pH = pKa + log10([A-]/[HA])
+    // Therefore: [A-]/[HA] = 10^(pH-pKa)
     const ratio = Math.pow(10, desiredPH - pKa);
+    
+    // We know: [HA] + [A-] = totalConcentration
+    // And: [A-]/[HA] = ratio
+    // So: [HA] + [A-] = totalConcentration
+    // [HA] + ratio*[HA] = totalConcentration
+    // [HA]*(1 + ratio) = totalConcentration
+    
     const acidConc = totalBufferConcentration / (1 + ratio);
     const baseConc = totalBufferConcentration - acidConc;
-
-    const conversionFactor = bufferUnit === "millimolar" ? 0.001 : 1;
-    const resultFactor = resultUnit === "millimolar" ? 1000 : 1;
-
+    
+    // Convert units if needed (molar to millimolar or vice versa)
+    const conversionFactor = (bufferUnit === "millimolar" ? 0.001 : 1);
+    const resultFactor = (resultUnit === "millimolar" ? 1000 : 1);
+    
+    const scaledAcidConc = (acidConc * conversionFactor) * resultFactor;
+    const scaledBaseConc = (baseConc * conversionFactor) * resultFactor;
+    
     return {
-      acidConcentration: acidConc * conversionFactor * resultFactor,
-      baseConcentration: baseConc * conversionFactor * resultFactor
+      acidConcentration: scaledAcidConc,
+      baseConcentration: scaledBaseConc
     };
   };
 
@@ -87,39 +105,41 @@ export default function HendersonHasselbalchCalculator() {
   return (
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
       <div className="flex flex-col items-center mb-6">
-        {/* You can replace with a real image if desired */}
-        {/* <img src="/logo.png" alt="pKanalytical Logo" className="h-16 mb-3 object-contain" /> */}
-        <h1 className="text-2xl font-bold text-center text-blue-600">
-          pKanalytical Henderson–Hasselbalch Calculator
-        </h1>
+        {/* Using a placeholder image - replace with your actual logo */}
+        <img src="/api/placeholder/300/100" alt="pKanalytical Logo" className="h-16 mb-3 object-contain" />
+        <h1 className="text-2xl font-bold text-center text-blue-600">pKanalytical Henderson–Hasselbalch Calculator</h1>
       </div>
-
+      
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Select Buffer Type:</label>
           <select
             value={selectedBuffer.name}
             onChange={handleBufferChange}
-            className="w-full p-2 border border-gray-300 rounded-md"
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
           >
             {bufferOptions.map((buffer) => (
-              <option key={buffer.name} value={buffer.name}>{buffer.name}</option>
+              <option key={buffer.name} value={buffer.name}>
+                {buffer.name}
+              </option>
             ))}
           </select>
         </div>
-
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Buffer pKa value:</label>
-          <input
-            type="number"
-            step="0.01"
-            value={pKa}
-            onChange={(e) => setPKa(parseFloat(e.target.value) || 0)}
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
-          <p className="text-xs text-gray-500 mt-1">You can manually edit the pKa value</p>
+          <div className="flex items-center">
+            <input
+              type="number"
+              step="0.01"
+              value={pKa}
+              onChange={(e) => setPKa(parseFloat(e.target.value))}
+              className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-1">You can edit the pKa value as needed</p>
         </div>
-
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Desired Final pH:</label>
           <input
@@ -128,65 +148,76 @@ export default function HendersonHasselbalchCalculator() {
             min="0"
             max="14"
             value={desiredPH}
-            onChange={(e) => setDesiredPH(parseFloat(e.target.value) || 0)}
-            className="w-full p-2 border border-gray-300 rounded-md"
+            onChange={(e) => setDesiredPH(parseFloat(e.target.value))}
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
-
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Total Buffer Concentration:</label>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <input
               type="number"
               step="0.01"
               min="0.0001"
               value={totalBufferConcentration}
-              onChange={(e) => setTotalBufferConcentration(parseFloat(e.target.value) || 0)}
-              className="flex-grow p-2 border border-gray-300 rounded-md"
+              onChange={(e) => setTotalBufferConcentration(parseFloat(e.target.value))}
+              className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             />
             <select
               value={bufferUnit}
               onChange={(e) => setBufferUnit(e.target.value)}
-              className="p-2 border border-gray-300 rounded-md"
+              className="p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="molar">M</option>
               <option value="millimolar">mM</option>
             </select>
           </div>
         </div>
-
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Display Results In:</label>
           <select
             value={resultUnit}
             onChange={(e) => setResultUnit(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md"
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="molar">Molar (M)</option>
             <option value="millimolar">Millimolar (mM)</option>
           </select>
         </div>
-
+        
         <button
           onClick={handleCalculate}
-          className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition"
+          className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition duration-200"
         >
           Calculate Concentrations
         </button>
-
+        
         {acidConcentration !== null && baseConcentration !== null && (
           <div className="mt-6 p-4 bg-gray-100 rounded-lg">
             <h2 className="text-lg font-medium text-gray-800 mb-3">Results:</h2>
-            <div className="flex justify-between">
-              <span className="font-medium">Acidic Form [HA]:</span>
-              <span className="font-bold text-blue-700">{acidConcentration.toFixed(3)} {resultUnit === "molar" ? "M" : "mM"}</span>
-            </div>
-            <div className="flex justify-between mt-2">
-              <span className="font-medium">Basic Form [A⁻]:</span>
-              <span className="font-bold text-blue-700">{baseConcentration.toFixed(3)} {resultUnit === "molar" ? "M" : "mM"}</span>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Acidic Form [HA]:</span>
+                <span className="font-bold text-blue-700">{acidConcentration.toFixed(3)} {resultUnit === "molar" ? "M" : "mM"}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Basic Form [A<sup>-</sup>]:</span>
+                <span className="font-bold text-blue-700">{baseConcentration.toFixed(3)} {resultUnit === "molar" ? "M" : "mM"}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Final pH:</span>
+                <span className="font-bold text-blue-700">{desiredPH.toFixed(2)}</span>
+              </div>
             </div>
           </div>
         )}
+        
+        <div className="mt-4 text-sm text-gray-600">
+          <p className="font-medium mb-1">Formula used:</p>
+          <p className="bg-gray-100 p-2 rounded font-mono">pH = pKa + log<sub>10</sub>([A<sup>-</sup>]/[HA])</p>
+        </div>
       </div>
     </div>
   );
