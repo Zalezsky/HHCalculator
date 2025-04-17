@@ -1,0 +1,224 @@
+import { useState, useEffect } from 'react';
+
+export default function HendersonHasselbalchCalculator() {
+  // Buffer options with their corresponding pKa values
+  const bufferOptions = [
+    { name: "Phosphate pKa1", pKa: 2.14 },
+    { name: "Phosphate pKa2", pKa: 7.2 },
+    { name: "Phosphate pKa3", pKa: 12.37 },
+    { name: "Citrate pKa1", pKa: 6.39 },
+    { name: "Citrate pKa2", pKa: 4.76 },
+    { name: "Citrate pKa3", pKa: 3.13 },
+    { name: "Acetate", pKa: 4.76 },
+    { name: "Histidine Carboxyl", pKa: 1.7 },
+    { name: "Histidine Imidazole", pKa: 6.04 },
+    { name: "Histidine Amino", pKa: 9.09 },
+    { name: "Imidazole", pKa: 6.95 },
+    { name: "Tris", pKa: 8.07 },
+    { name: "Bis-Tris", pKa: 6.46 },
+    { name: "Glycine Carboxyl", pKa: 2.34 },
+    { name: "Glycine Amino", pKa: 9.58 },
+    { name: "Arginine Carboxyl", pKa: 2.03 },
+    { name: "Arginine Amino", pKa: 9.0 },
+    { name: "Arginine-Guanidine", pKa: 12.1 },
+    { name: "Glutamic Acid Carboxyl pKa1", pKa: 2.16 },
+    { name: "Glutamic Acid Carboxyl pKa2", pKa: 4.15 },
+    { name: "Glutamic Acid Amino pKa3", pKa: 9.58 },
+    { name: "MES", pKa: 6.1 },
+    { name: "MOPS", pKa: 7.2 },
+    { name: "MOPSO", pKa: 6.9 },
+    { name: "TAPSO", pKa: 7.635 },
+    { name: "TAPS", pKa: 8.44 },
+    { name: "ADA", pKa: 6.6 },
+    { name: "PIPES pKa1", pKa: 2.67 },
+    { name: "PIPES pKa2", pKa: 6.76 },
+    { name: "Custom", pKa: 7.0 }
+  ];
+
+  const [selectedBuffer, setSelectedBuffer] = useState(bufferOptions[0]);
+  const [pKa, setPKa] = useState(bufferOptions[0].pKa);
+  
+  // New state variables
+  const [desiredPH, setDesiredPH] = useState(7.0);
+  const [totalBufferConcentration, setTotalBufferConcentration] = useState(1.0);
+  const [bufferUnit, setBufferUnit] = useState("molar");
+  const [resultUnit, setResultUnit] = useState("molar");
+  const [acidConcentration, setAcidConcentration] = useState(null);
+  const [baseConcentration, setBaseConcentration] = useState(null);
+
+  // Update pKa when buffer selection changes (but allows for manual edits after)
+  useEffect(() => {
+    setPKa(selectedBuffer.pKa);
+  }, [selectedBuffer]);
+
+  const handleBufferChange = (e) => {
+    const selected = bufferOptions.find(buffer => buffer.name === e.target.value);
+    setSelectedBuffer(selected);
+  };
+
+  const calculateConcentrations = () => {
+    // Check if inputs are valid
+    if (desiredPH < 0 || desiredPH > 14 || totalBufferConcentration <= 0) {
+      return {
+        error: "Invalid input. pH must be between 0-14 and concentration must be positive."
+      };
+    }
+
+    // Henderson-Hasselbalch: pH = pKa + log10([A-]/[HA])
+    // Therefore: [A-]/[HA] = 10^(pH-pKa)
+    const ratio = Math.pow(10, desiredPH - pKa);
+    
+    // We know: [HA] + [A-] = totalConcentration
+    // And: [A-]/[HA] = ratio
+    // So: [HA] + [A-] = totalConcentration
+    // [HA] + ratio*[HA] = totalConcentration
+    // [HA]*(1 + ratio) = totalConcentration
+    
+    const acidConc = totalBufferConcentration / (1 + ratio);
+    const baseConc = totalBufferConcentration - acidConc;
+    
+    // Convert units if needed (molar to millimolar or vice versa)
+    const conversionFactor = (bufferUnit === "millimolar" ? 0.001 : 1);
+    const resultFactor = (resultUnit === "millimolar" ? 1000 : 1);
+    
+    const scaledAcidConc = (acidConc * conversionFactor) * resultFactor;
+    const scaledBaseConc = (baseConc * conversionFactor) * resultFactor;
+    
+    return {
+      acidConcentration: scaledAcidConc,
+      baseConcentration: scaledBaseConc
+    };
+  };
+
+  const handleCalculate = () => {
+    const result = calculateConcentrations();
+    if (result.error) {
+      setAcidConcentration(null);
+      setBaseConcentration(null);
+      alert(result.error);
+    } else {
+      setAcidConcentration(result.acidConcentration);
+      setBaseConcentration(result.baseConcentration);
+    }
+  };
+
+  return (
+    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
+      <div className="flex flex-col items-center mb-6">
+        {/* Using a placeholder image - replace with your actual logo */}
+        <img src="/api/placeholder/300/100" alt="pKanalytical Logo" className="h-16 mb-3 object-contain" />
+        <h1 className="text-2xl font-bold text-center text-blue-600">pKanalytical Henderson–Hasselbalch Calculator</h1>
+      </div>
+      
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Select Buffer Type:</label>
+          <select
+            value={selectedBuffer.name}
+            onChange={handleBufferChange}
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          >
+            {bufferOptions.map((buffer) => (
+              <option key={buffer.name} value={buffer.name}>
+                {buffer.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Buffer pKa value:</label>
+          <div className="flex items-center">
+            <input
+              type="number"
+              step="0.01"
+              value={pKa}
+              onChange={(e) => setPKa(parseFloat(e.target.value))}
+              className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-1">You can edit the pKa value as needed</p>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Desired Final pH:</label>
+          <input
+            type="number"
+            step="0.1"
+            min="0"
+            max="14"
+            value={desiredPH}
+            onChange={(e) => setDesiredPH(parseFloat(e.target.value))}
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Total Buffer Concentration:</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              step="0.01"
+              min="0.0001"
+              value={totalBufferConcentration}
+              onChange={(e) => setTotalBufferConcentration(parseFloat(e.target.value))}
+              className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            />
+            <select
+              value={bufferUnit}
+              onChange={(e) => setBufferUnit(e.target.value)}
+              className="p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="molar">M</option>
+              <option value="millimolar">mM</option>
+            </select>
+          </div>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Display Results In:</label>
+          <select
+            value={resultUnit}
+            onChange={(e) => setResultUnit(e.target.value)}
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="molar">Molar (M)</option>
+            <option value="millimolar">Millimolar (mM)</option>
+          </select>
+        </div>
+        
+        <button
+          onClick={handleCalculate}
+          className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition duration-200"
+        >
+          Calculate Concentrations
+        </button>
+        
+        {acidConcentration !== null && baseConcentration !== null && (
+          <div className="mt-6 p-4 bg-gray-100 rounded-lg">
+            <h2 className="text-lg font-medium text-gray-800 mb-3">Results:</h2>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Acidic Form [HA]:</span>
+                <span className="font-bold text-blue-700">{acidConcentration.toFixed(3)} {resultUnit === "molar" ? "M" : "mM"}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Basic Form [A<sup>-</sup>]:</span>
+                <span className="font-bold text-blue-700">{baseConcentration.toFixed(3)} {resultUnit === "molar" ? "M" : "mM"}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Final pH:</span>
+                <span className="font-bold text-blue-700">{desiredPH.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <div className="mt-4 text-sm text-gray-600">
+          <p className="font-medium mb-1">Formula used:</p>
+          <p className="bg-gray-100 p-2 rounded font-mono">pH = pKa + log<sub>10</sub>([A<sup>-</sup>]/[HA])</p>
+        </div>
+      </div>
+    </div>
+  );
+}
